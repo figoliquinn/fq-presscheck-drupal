@@ -1,0 +1,126 @@
+<?php
+/**
+ * @file
+ *
+ * Custom functionality that allows the presscheck iOS app to interact with Drupal
+ */
+ 
+ 
+ /**
+  * Create the url item for checking the update status
+  */
+ function fqpresscheck_menu() {
+  $items['fq/update-check'] = array(
+    'page callback' => 'fqpresscheck_updatecheck',
+    'access arguments' => array('access content'),
+  );
+  
+  return $items;
+  
+ }
+ 
+ 
+ /**
+  * Our main function where the check happens
+  */
+ function fqpresscheck_updatecheck() {
+  if (fqpresscheck_user_can_view()) {
+    $data = fqpresscheck_get_update_data();
+    $formattedData = fqpresscheck_format_update_data($data);
+    
+    // Return the data
+    echo json_encode($formattedData);
+    die();
+    
+  }
+  else {
+    echo json_encode('invalid credentials');
+    die();
+  }
+   
+ }
+ 
+ 
+ /**
+  * Check to see that the user is an administratorf
+  */
+ function fqpresscheck_user_can_view() {
+   
+   // Make sure the username / password were passed in
+   if (isset($_POST['username']) && isset($_POST['password'])) {
+     $username = $_POST['username'];
+     $password = $_POST['password'];
+     
+     // Can that the user authenticates
+     if ($uid = user_authenticate($username, $password)) {
+       $user = user_load($uid);
+       
+       // They need to be an admin
+       return user_access('administer site configuration', $user);
+     }
+     else {
+       return FALSE;
+     }
+   }
+   else {
+     return FALSE;
+   }
+ }
+ 
+ 
+ /**
+  * Fetch the update status using the core updator module
+  */
+ function fqpresscheck_get_update_data() {
+   $data = array();
+   
+   if ($available = update_get_available(TRUE)) {
+    module_load_include('inc', 'update', 'update.compare');
+    $data = update_calculate_project_data($available);
+  }
+  
+  return $data;
+ }
+ 
+ 
+/**
+ * Format the data so it's how the app is expecting
+ * @param array $data
+ *
+ * @return array $data
+ */
+function fqpresscheck_format_update_data($data) {
+  $updates = new stdClass();
+  $updates->type = 'drupal';
+  $updates->core = array();
+  $updates->themes = array();
+  $updates->plugins = array();
+  
+  
+  // Format the update
+  foreach ($data as $item) {
+    $update = new stdClass();
+    $update->title = $item['info']['name'];
+    $update->update = TRUE;
+    $update->currentVersion = $item['existing_version'];
+    $update->newVersion = $item['info']['version'];
+    
+    // What type of update is it?
+    switch ($item['project_type'])
+    {
+      case 'theme':
+        $updates->themes[] = $update;
+        break;
+      
+      case 'core':
+        $updates->core[] = $update;
+        
+      default:
+        $updates->plugins[] = $update;
+        break;
+    }    
+  }
+  
+  return $updates;
+
+}
