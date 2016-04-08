@@ -77,9 +77,19 @@
    if ($available = update_get_available(TRUE)) {
     module_load_include('inc', 'update', 'update.compare');
     $data = update_calculate_project_data($available);
+    
+    $updates = array();
+        
+    foreach ($data as $key => $item)
+    {	    
+	    if ($item['status'] != 5)
+	    {
+		    $updates[] = $item;
+	    }
+    }
   }
-  
-  return $data;
+    
+  return $updates;
  }
  
  
